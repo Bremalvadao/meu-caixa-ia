@@ -1,9 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import type { Category, FinanceTransaction } from './types'
+import type { Bank, Category, FinanceTransaction } from './types'
 
 const STORAGE_KEYS = {
   userCategories: '@meu-caixa-ia/user-categories-v1',
   transactions: '@meu-caixa-ia/transactions-v1',
+  banks: '@meu-caixa-ia/banks-v1',
 }
 
 const readArray = async <T>(key: string): Promise<T[]> => {
@@ -25,4 +26,6 @@ export const financeStorage = {
   loadTransactions: () => readArray<FinanceTransaction>(STORAGE_KEYS.transactions),
   saveTransactions: (transactions: FinanceTransaction[]) =>
     AsyncStorage.setItem(STORAGE_KEYS.transactions, JSON.stringify(transactions)),
+  loadBanks: () => readArray<Bank>(STORAGE_KEYS.banks),
+  saveBanks: (banks: Bank[]) => AsyncStorage.setItem(STORAGE_KEYS.banks, JSON.stringify(banks)),
 }
