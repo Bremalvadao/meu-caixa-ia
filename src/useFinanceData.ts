@@ -122,6 +122,23 @@ export const useFinanceData = () => {
     void persistTransactions(transactions.filter((transaction) => transaction.id !== id))
   }, [persistTransactions, transactions])
 
+  const createInvoicePayment = useCallback((invoiceId: string, cardName: string, amount: number, date: string, bankId: string) => {
+    if (amount <= 0 || transactions.some((transaction) => transaction.invoiceId === invoiceId)) return
+    const transaction: FinanceTransaction = {
+      id: createId('transaction'),
+      date,
+      description: `Pagamento da fatura ${cardName}`,
+      amount,
+      type: 'expense',
+      categoryId: 'default-card-bill',
+      bankId,
+      invoiceId,
+      note: 'Gerado ao marcar a fatura como paga.',
+      origin: 'card_invoice',
+    }
+    void persistTransactions([transaction, ...transactions])
+  }, [persistTransactions, transactions])
+
   const createBank = useCallback((input: BankInput) => {
     const bank: Bank = { ...input, id: createId('bank'), createdAt: new Date().toISOString() }
     void persistBanks([...banks, bank])
@@ -153,6 +170,7 @@ export const useFinanceData = () => {
     createTransaction,
     updateTransaction,
     deleteTransaction,
+    createInvoicePayment,
     createBank,
     updateBank,
     toggleBank,
