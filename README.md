@@ -1,35 +1,68 @@
 # Meu Caixa IA
 
-Aplicativo web para acompanhar entradas, saídas e saldo de caixa em uma interface simples e responsiva.
+Base visual de um aplicativo móvel de controle de caixa, criada com Expo, React Native e TypeScript.
 
-## Primeira versão
+Esta etapa contém somente a interface inicial: resumo financeiro, formulário de lançamento, histórico e um espaço reservado para o futuro assistente. Os dados ficam apenas em memória enquanto o app está aberto.
 
-- painel com saldo, entradas e saídas;
-- cadastro de lançamentos;
-- histórico recente;
-- persistência no navegador com `localStorage`;
-- área reservada para o futuro assistente de IA.
+## Requisitos
 
-## Como executar
+- Node.js 22.13 ou superior;
+- npm;
+- Expo Go no celular, ou um emulador Android/iOS configurado.
+
+## Instalação
+
+Na pasta do projeto, instale as dependências:
 
 ```bash
 npm install
-npm run dev
 ```
 
-Depois, abra o endereço exibido pelo Vite.
+## Execução
+
+Inicie o servidor de desenvolvimento pelo script do projeto:
+
+```bash
+npm run start
+```
+
+O comando equivalente com a CLI do Expo é:
+
+```bash
+npx expo start
+```
+
+Depois que o Expo iniciar:
+
+- leia o QR Code com o Expo Go para abrir no celular;
+- pressione `a` para abrir no Android;
+- pressione `i` para abrir no simulador iOS, disponível em macOS.
+
+Também estão disponíveis os scripts:
+
+```bash
+npm run android
+npm run ios
+```
+
+## Estrutura principal
+
+```text
+app.json          Configuração do Expo
+package.json      Dependências e scripts
+tsconfig.json     Configuração do TypeScript
+src/main.tsx      Registro do componente raiz
+src/App.tsx       Tela visual inicial
+src/types.ts      Tipos dos lançamentos
+```
 
 ## Tecnologias
 
+- Expo SDK 56
+- React Native
 - React
 - TypeScript
-- Vite
-- CSS puro
 
-## Próximos passos
+## Observação sobre validação
 
-1. Definir autenticação e perfis de usuário.
-2. Escolher banco de dados e hospedagem.
-3. Implementar categorias, filtros e relatórios.
-4. Conectar o assistente de IA por meio de uma API segura no servidor.
-
+O código foi revisado estaticamente. O build não foi executado porque o ambiente usado na revisão não possui Node.js.
