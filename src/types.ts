@@ -1,6 +1,7 @@
 export type TransactionType = 'income' | 'expense'
 export type CategoryType = TransactionType | 'both'
-export type AppScreen = 'dashboard' | 'transactions' | 'categories'
+export type BankType = 'checking' | 'payment' | 'savings' | 'cash' | 'other'
+export type AppScreen = 'dashboard' | 'transactions' | 'categories' | 'banks'
 
 export type Category = {
   id: string
@@ -19,9 +20,21 @@ export type FinanceTransaction = {
   amount: number
   type: TransactionType
   categoryId: string
+  bankId: string
   note?: string
   origin: 'manual'
 }
 
+export type Bank = {
+  id: string
+  name: string
+  type: BankType
+  initialBalance: number
+  color?: string
+  active: boolean
+  createdAt: string
+}
+
 export type CategoryInput = Omit<Category, 'id' | 'isDefault'>
 export type TransactionInput = Omit<FinanceTransaction, 'id' | 'origin'>
+export type BankInput = Omit<Bank, 'id' | 'createdAt'>
