@@ -10,8 +10,11 @@ Esta versão permite cadastrar categorias próprias e registrar entradas e saíd
 - criação, edição e exclusão de categorias do usuário;
 - proteção das categorias padrão contra exclusão;
 - criação, edição e exclusão de transações manuais;
-- filtros por mês, tipo e categoria;
-- dashboard com entradas, saídas, resultado, totais por categoria e itens para revisar;
+- cadastro, edição, exclusão e ativação de bancos/contas;
+- vínculo obrigatório de cada transação com um banco;
+- filtros por mês, tipo, categoria e banco;
+- dashboard com entradas, saídas, resultado, totais por categoria, resumo por banco e itens para revisar;
+- cards de bancos com saldo inicial, movimentação mensal e saldo estimado;
 - armazenamento local preparado para futura substituição por Supabase.
 
 ## Requisitos
@@ -64,6 +67,8 @@ tsconfig.json     Configuração do TypeScript
 src/main.tsx      Registro do componente raiz
 src/App.tsx       Tela visual inicial
 src/types.ts      Tipos dos lançamentos
+src/defaultBanks.ts Bancos sugeridos e banco de contingência
+src/storage.ts    Persistência local isolada
 ```
 
 ## Tecnologias
