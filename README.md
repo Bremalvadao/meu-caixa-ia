@@ -2,7 +2,7 @@
 
 Base visual de um aplicativo móvel de controle de caixa, criada com Expo, React Native e TypeScript.
 
-Esta versão permite cadastrar categorias próprias e registrar entradas e saídas manualmente. Categorias e transações são persistidas no aparelho com AsyncStorage.
+Esta versão permite controlar categorias, transações, bancos, cartões de crédito, compras parceladas e faturas. Os dados são persistidos no aparelho com AsyncStorage.
 
 ## Funcionalidades atuais
 
@@ -15,6 +15,13 @@ Esta versão permite cadastrar categorias próprias e registrar entradas e saíd
 - filtros por mês, tipo, categoria e banco;
 - dashboard com entradas, saídas, resultado, totais por categoria, resumo por banco e itens para revisar;
 - cards de bancos com saldo inicial, movimentação mensal e saldo estimado;
+- cadastro, edição, exclusão e ativação de cartões vinculados a bancos;
+- controle de limite total, usado e disponível por cartão;
+- compras à vista e parceladas, com geração automática das parcelas futuras;
+- faturas mensais com estados aberta, fechada, paga e vencida;
+- estornos, juros, multas, anuidades e IOF;
+- pagamento de fatura refletido na visão de caixa sem duplicar o consumo;
+- dashboard separado entre visão de caixa e visão de consumo;
 - armazenamento local preparado para futura substituição por Supabase.
 
 ## Requisitos
@@ -65,9 +72,11 @@ app.json          Configuração do Expo
 package.json      Dependências e scripts
 tsconfig.json     Configuração do TypeScript
 src/main.tsx      Registro do componente raiz
-src/App.tsx       Tela visual inicial
-src/types.ts      Tipos dos lançamentos
+src/App.tsx       Telas e formulários do aplicativo
+src/types.ts      Tipos financeiros do aplicativo
 src/defaultBanks.ts Bancos sugeridos e banco de contingência
+src/creditCardUtils.ts Regras de parcelas, faturas, limites e vencimentos
+src/useCreditCardData.ts Estado e operações locais de cartões
 src/storage.ts    Persistência local isolada
 ```
 
