@@ -18,6 +18,9 @@ import { REVIEW_CATEGORY_ID } from './defaultCategories'
 import { useFinanceData } from './useFinanceData'
 import type {
   AppScreen,
+  Bank,
+  BankInput,
+  BankType,
   Category,
   CategoryInput,
   CategoryType,
@@ -56,6 +59,7 @@ const monthLabel = (value: string) => {
   return new Date(year, month - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
 }
 const typeLabel = (type: CategoryType) => type === 'income' ? 'Entrada' : type === 'expense' ? 'Saída' : 'Ambos'
+const bankTypeLabel = (type: BankType) => ({ checking: 'Conta corrente', payment: 'Conta pagamento', savings: 'Poupança', cash: 'Dinheiro físico', other: 'Outros' })[type]
 
 type MonthSelectorProps = { value: string; onChange: (value: string) => void }
 function MonthSelector({ value, onChange }: MonthSelectorProps) {
@@ -73,8 +77,9 @@ type DashboardProps = {
   onMonthChange: (value: string) => void
   transactions: FinanceTransaction[]
   categories: Category[]
+  banks: Bank[]
 }
-function Dashboard({ month, onMonthChange, transactions, categories }: DashboardProps) {
+function Dashboard({ month, onMonthChange, transactions, categories, banks }: DashboardProps) {
   const monthTransactions = useMemo(
     () => transactions.filter((transaction) => transaction.date.startsWith(month)),
     [month, transactions],
@@ -96,6 +101,12 @@ function Dashboard({ month, onMonthChange, transactions, categories }: Dashboard
       .slice(0, 6)
   }, [categories, monthTransactions])
   const recent = [...monthTransactions].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5)
+  const bankSummaries = banks.map((bank) => {
+    const items = monthTransactions.filter((transaction) => transaction.bankId === bank.id)
+    const bankIncome = items.filter((item) => item.type === 'income').reduce((sum, item) => sum + item.amount, 0)
+    const bankExpense = items.filter((item) => item.type === 'expense').reduce((sum, item) => sum + item.amount, 0)
+    return { bank, income: bankIncome, expense: bankExpense, result: bankIncome - bankExpense, count: items.length }
+  }).filter((item) => item.count > 0)
 
   return (
     <ScrollView contentContainerStyle={styles.screenContent}>
@@ -128,7 +139,16 @@ function Dashboard({ month, onMonthChange, transactions, categories }: Dashboard
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Últimas transações</Text>
         {recent.length === 0 ? <EmptyText text="Cadastre sua primeira transação manual." /> : recent.map((transaction) => (
-          <TransactionRow key={transaction.id} transaction={transaction} category={categories.find((item) => item.id === transaction.categoryId)} />
+          <TransactionRow key={transaction.id} transaction={transaction} category={categories.find((item) => item.id === transaction.categoryId)} bank={banks.find((item) => item.id === transaction.bankId)} />
+        ))}
+      </View>
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Resumo por banco</Text>
+        {bankSummaries.length === 0 ? <EmptyText text="Nenhum banco movimentado neste mês." /> : bankSummaries.map(({ bank, income: bankIncome, expense: bankExpense, result: bankResult, count }) => (
+          <View key={bank.id} style={[styles.transactionBlock, !bank.active && { opacity: 0.5 }]}>
+            <View style={styles.categoryTotalRow}><View style={[styles.categoryDot, { backgroundColor: bank.color ?? COLORS.muted }]} /><Text style={styles.categoryTotalName}>{bank.name}</Text><Text style={[styles.categoryTotalValue, { color: bankResult >= 0 ? COLORS.income : COLORS.expense }]}>{money.format(bankResult)}</Text></View>
+            <Text style={styles.cardHint}>{money.format(bankIncome)} entradas · {money.format(bankExpense)} saídas · {count} transações</Text>
+          </View>
         ))}
       </View>
     </ScrollView>
@@ -140,14 +160,16 @@ type TransactionsProps = DashboardProps & {
   onEdit: (transaction: FinanceTransaction) => void
   onDelete: (id: string) => void
 }
-function TransactionsScreen({ month, onMonthChange, transactions, categories, onCreate, onEdit, onDelete }: TransactionsProps) {
+function TransactionsScreen({ month, onMonthChange, transactions, categories, banks, onCreate, onEdit, onDelete }: TransactionsProps) {
   const [typeFilter, setTypeFilter] = useState<'all' | TransactionType>('all')
   const [categoryFilter, setCategoryFilter] = useState('all')
+  const [bankFilter, setBankFilter] = useState('all')
   const filtered = useMemo(() => transactions
     .filter((transaction) => transaction.date.startsWith(month))
     .filter((transaction) => typeFilter === 'all' || transaction.type === typeFilter)
     .filter((transaction) => categoryFilter === 'all' || transaction.categoryId === categoryFilter)
-    .sort((a, b) => b.date.localeCompare(a.date)), [categoryFilter, month, transactions, typeFilter])
+    .filter((transaction) => bankFilter === 'all' || transaction.bankId === bankFilter)
+    .sort((a, b) => b.date.localeCompare(a.date)), [bankFilter, categoryFilter, month, transactions, typeFilter])
 
   const confirmDelete = (transaction: FinanceTransaction) => Alert.alert(
     'Excluir transação?',
@@ -166,11 +188,15 @@ function TransactionsScreen({ month, onMonthChange, transactions, categories, on
         <FilterChip active={categoryFilter === 'all'} label="Categorias" onPress={() => setCategoryFilter('all')} />
         {categories.map((category) => <FilterChip key={category.id} active={categoryFilter === category.id} label={`${category.icon ?? ''} ${category.name}`} onPress={() => setCategoryFilter(category.id)} />)}
       </ScrollView>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalChips}>
+        <FilterChip active={bankFilter === 'all'} label="Todos os bancos" onPress={() => setBankFilter('all')} />
+        {banks.map((bank) => <FilterChip key={bank.id} active={bankFilter === bank.id} label={bank.name} onPress={() => setBankFilter(bank.id)} />)}
+      </ScrollView>
       <View style={styles.card}>
         <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>{filtered.length} transações</Text><Text style={styles.cardHint}>Origem manual</Text></View>
         {filtered.length === 0 ? <EmptyText text="Nenhuma transação para estes filtros." /> : filtered.map((transaction) => (
           <View key={transaction.id} style={styles.transactionBlock}>
-            <TransactionRow transaction={transaction} category={categories.find((item) => item.id === transaction.categoryId)} />
+            <TransactionRow transaction={transaction} category={categories.find((item) => item.id === transaction.categoryId)} bank={banks.find((item) => item.id === transaction.bankId)} />
             <View style={styles.rowActions}><Pressable onPress={() => onEdit(transaction)}><Text style={styles.actionText}>Editar</Text></Pressable><Pressable onPress={() => confirmDelete(transaction)}><Text style={[styles.actionText, styles.expense]}>Excluir</Text></Pressable></View>
           </View>
         ))}
@@ -218,22 +244,112 @@ function CategoriesScreen({ categories, onCreate, onEdit, onDelete }: Categories
   )
 }
 
+type BanksProps = {
+  month: string
+  onMonthChange: (value: string) => void
+  banks: Bank[]
+  transactions: FinanceTransaction[]
+  onCreate: () => void
+  onEdit: (bank: Bank) => void
+  onDelete: (id: string) => boolean
+  onToggle: (id: string) => void
+}
+function BanksScreen({ month, onMonthChange, banks, transactions, onCreate, onEdit, onDelete, onToggle }: BanksProps) {
+  const confirmDelete = (bank: Bank) => Alert.alert(
+    'Excluir banco?',
+    'Bancos com transações vinculadas não podem ser excluídos. Você pode inativá-los.',
+    [{ text: 'Cancelar', style: 'cancel' }, { text: 'Excluir', style: 'destructive', onPress: () => {
+      if (!onDelete(bank.id)) Alert.alert('Banco em uso', 'Remova ou altere as transações vinculadas antes de excluir este banco.')
+    } }],
+  )
+
+  return (
+    <ScrollView contentContainerStyle={styles.screenContent}>
+      <View style={styles.pageHeader}><View><Text style={styles.eyebrow}>CONTAS</Text><Text style={styles.pageTitleSmall}>Bancos</Text></View><Pressable style={styles.primaryButtonSmall} onPress={onCreate}><Text style={styles.primaryButtonText}>+ Novo</Text></Pressable></View>
+      <Text style={styles.pageSubtitle}>Gerencie contas, carteiras digitais e dinheiro físico.</Text>
+      <MonthSelector value={month} onChange={onMonthChange} />
+      {banks.map((bank) => {
+        const monthItems = transactions.filter((transaction) => transaction.bankId === bank.id && transaction.date.startsWith(month))
+        const allItems = transactions.filter((transaction) => transaction.bankId === bank.id)
+        const income = monthItems.filter((item) => item.type === 'income').reduce((sum, item) => sum + item.amount, 0)
+        const expense = monthItems.filter((item) => item.type === 'expense').reduce((sum, item) => sum + item.amount, 0)
+        const result = income - expense
+        const estimatedBalance = bank.initialBalance + allItems.reduce((sum, item) => sum + (item.type === 'income' ? item.amount : -item.amount), 0)
+        return (
+          <View key={bank.id} style={[styles.card, !bank.active && { opacity: 0.48 }]}>
+            <View style={styles.sectionHeader}>
+              <View style={{ flex: 1 }}><View style={styles.categoryTotalRow}><View style={[styles.categoryDot, { backgroundColor: bank.color ?? COLORS.muted }]} /><Text style={styles.sectionTitle}>{bank.name}</Text></View><Text style={styles.cardHint}>{bankTypeLabel(bank.type)} · {bank.active ? 'Ativo' : 'Inativo'}</Text></View>
+              <Text style={[styles.metricValue, { color: estimatedBalance >= 0 ? COLORS.income : COLORS.expense }]}>{money.format(estimatedBalance)}</Text>
+            </View>
+            <Text style={styles.cardHint}>Saldo estimado</Text>
+            <View style={styles.twoColumns}>
+              <View style={{ flex: 1 }}><Text style={styles.cardLabel}>Entradas</Text><Text style={[styles.metricValue, styles.income]}>{money.format(income)}</Text></View>
+              <View style={{ flex: 1 }}><Text style={styles.cardLabel}>Saídas</Text><Text style={[styles.metricValue, styles.expense]}>{money.format(expense)}</Text></View>
+            </View>
+            <View style={styles.categoryTotalRow}><Text style={styles.categoryTotalName}>Resultado do mês · {monthItems.length} transações</Text><Text style={[styles.categoryTotalValue, { color: result >= 0 ? COLORS.income : COLORS.expense }]}>{money.format(result)}</Text></View>
+            <View style={styles.rowActions}><Pressable onPress={() => onEdit(bank)}><Text style={styles.actionText}>Editar</Text></Pressable><Pressable onPress={() => onToggle(bank.id)}><Text style={styles.actionText}>{bank.active ? 'Inativar' : 'Ativar'}</Text></Pressable><Pressable onPress={() => confirmDelete(bank)}><Text style={[styles.actionText, styles.expense]}>Excluir</Text></Pressable></View>
+          </View>
+        )
+      })}
+    </ScrollView>
+  )
+}
+
+type BankModalProps = {
+  visible: boolean
+  bank: Bank | null
+  onClose: () => void
+  onSave: (input: BankInput) => void
+}
+function BankModal({ visible, bank, onClose, onSave }: BankModalProps) {
+  const [name, setName] = useState('')
+  const [type, setType] = useState<BankType>('checking')
+  const [initialBalance, setInitialBalance] = useState('0')
+  const [color, setColor] = useState<string | undefined>(undefined)
+  const reset = (next: Bank | null) => { setName(next?.name ?? ''); setType(next?.type ?? 'checking'); setInitialBalance(String(next?.initialBalance ?? 0).replace('.', ',')); setColor(next?.color) }
+  const close = () => { onClose(); reset(null) }
+  const save = () => {
+    const numericBalance = Number(initialBalance.replace(',', '.'))
+    if (!name.trim() || !Number.isFinite(numericBalance)) { Alert.alert('Confira os campos', 'Informe o nome e um saldo inicial válido.'); return }
+    onSave({ name: name.trim(), type, initialBalance: numericBalance, color, active: bank?.active ?? true })
+    close()
+  }
+  const bankTypes: BankType[] = ['checking', 'payment', 'savings', 'cash', 'other']
+  return (
+    <Modal visible={visible} animationType="slide" transparent onShow={() => reset(bank)} onRequestClose={close}>
+      <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={styles.modalSheet}><ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled">
+          <View style={styles.sectionHeader}><Text style={styles.modalTitle}>{bank ? 'Editar banco' : 'Novo banco'}</Text><Pressable onPress={close}><Text style={styles.closeText}>Fechar</Text></Pressable></View>
+          <Field label="Nome" value={name} onChangeText={setName} placeholder="Ex.: Conta principal" />
+          <Text style={styles.fieldLabel}>Tipo</Text><View style={styles.segmentRow}>{bankTypes.map((item) => <FilterChip key={item} active={type === item} label={bankTypeLabel(item)} onPress={() => setType(item)} />)}</View>
+          <Field label="Saldo inicial" value={initialBalance} onChangeText={setInitialBalance} placeholder="0,00" keyboardType="decimal-pad" />
+          <Text style={styles.fieldLabel}>Cor (opcional)</Text><View style={styles.colorRow}>{COLOR_OPTIONS.map((item) => <Pressable accessibilityLabel={`Cor ${item}`} key={item} onPress={() => setColor(item)} style={[styles.colorOption, { backgroundColor: item }, color === item && styles.colorOptionActive]} />)}</View>
+          <Pressable style={styles.primaryButton} onPress={save}><Text style={styles.primaryButtonText}>Salvar banco</Text></Pressable>
+        </ScrollView></View>
+      </KeyboardAvoidingView>
+    </Modal>
+  )
+}
+
 type TransactionModalProps = {
   visible: boolean
   transaction: FinanceTransaction | null
   categories: Category[]
+  banks: Bank[]
   onClose: () => void
   onSave: (input: TransactionInput) => void
 }
-function TransactionModal({ visible, transaction, categories, onClose, onSave }: TransactionModalProps) {
+function TransactionModal({ visible, transaction, categories, banks, onClose, onSave }: TransactionModalProps) {
   const [description, setDescription] = useState('')
   const [amount, setAmount] = useState('')
   const [date, setDate] = useState(today())
   const [type, setType] = useState<TransactionType>('expense')
   const [categoryId, setCategoryId] = useState('')
+  const [bankId, setBankId] = useState('')
   const [note, setNote] = useState('')
 
   const compatibleCategories = categories.filter((category) => category.type === 'both' || category.type === type)
+  const availableBanks = banks.filter((bank) => bank.active || bank.id === transaction?.bankId)
   const reset = (next: FinanceTransaction | null) => {
     const nextType = next?.type ?? 'expense'
     setDescription(next?.description ?? '')
@@ -241,16 +357,17 @@ function TransactionModal({ visible, transaction, categories, onClose, onSave }:
     setDate(next?.date ?? today())
     setType(nextType)
     setCategoryId(next?.categoryId ?? categories.find((category) => category.type === nextType || category.type === 'both')?.id ?? '')
+    setBankId(next?.bankId ?? banks.find((bank) => bank.active)?.id ?? '')
     setNote(next?.note ?? '')
   }
   const close = () => { onClose(); reset(null) }
   const save = () => {
     const numericAmount = Number(amount.replace(',', '.'))
-    if (!description.trim() || !Number.isFinite(numericAmount) || numericAmount <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !categoryId) {
-      Alert.alert('Confira os campos', 'Informe descrição, valor positivo, data no formato AAAA-MM-DD e categoria.')
+    if (!description.trim() || !Number.isFinite(numericAmount) || numericAmount <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !categoryId || !bankId) {
+      Alert.alert('Confira os campos', 'Informe descrição, valor positivo, data no formato AAAA-MM-DD, categoria e banco.')
       return
     }
-    onSave({ description: description.trim(), amount: numericAmount, date, type, categoryId, note: note.trim() || undefined })
+    onSave({ description: description.trim(), amount: numericAmount, date, type, categoryId, bankId, note: note.trim() || undefined })
     close()
   }
 
@@ -264,6 +381,8 @@ function TransactionModal({ visible, transaction, categories, onClose, onSave }:
             <Field label="Descrição" value={description} onChangeText={setDescription} placeholder="Ex.: Mercado" />
             <Field label="Valor" value={amount} onChangeText={setAmount} placeholder="0,00" keyboardType="decimal-pad" />
             <Field label="Data" value={date} onChangeText={setDate} placeholder="AAAA-MM-DD" />
+            <Text style={styles.fieldLabel}>Banco</Text>
+            <View style={styles.segmentRow}>{availableBanks.map((bank) => <FilterChip key={bank.id} active={bankId === bank.id} label={bank.name} onPress={() => setBankId(bank.id)} />)}</View>
             <Text style={styles.fieldLabel}>Categoria</Text>
             <ScrollView style={{ maxHeight: 210 }} nestedScrollEnabled contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
               {compatibleCategories.map((category) => <FilterChip key={category.id} active={categoryId === category.id} label={`${category.icon ?? ''} ${category.name}`} onPress={() => setCategoryId(category.id)} />)}
@@ -317,7 +436,7 @@ type FieldProps = ComponentProps<typeof TextInput> & { label: string }
 function Field({ label, ...props }: FieldProps) { return <View><Text style={styles.fieldLabel}>{label}</Text><TextInput {...props} placeholderTextColor={COLORS.muted} style={[styles.input, props.multiline && styles.inputMultiline]} /></View> }
 function FilterChip({ active, label, onPress }: { active: boolean; label: string; onPress: () => void }) { return <Pressable style={[styles.filterChip, active && styles.filterChipActive]} onPress={onPress}><Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{label}</Text></Pressable> }
 function EmptyText({ text }: { text: string }) { return <Text style={styles.emptyText}>{text}</Text> }
-function TransactionRow({ transaction, category }: { transaction: FinanceTransaction; category?: Category }) { return <View style={styles.transactionRow}><View style={[styles.transactionIcon, { backgroundColor: `${category?.color ?? COLORS.warning}22` }]}><Text>{category?.icon ?? '⚠️'}</Text></View><View style={styles.transactionInfo}><Text style={styles.transactionTitle}>{transaction.description}</Text><Text style={styles.transactionMeta}>{category?.name ?? 'Não identificado'} · {new Date(`${transaction.date}T12:00:00`).toLocaleDateString('pt-BR')}</Text></View><Text style={[styles.transactionAmount, transaction.type === 'income' ? styles.income : styles.expense]}>{transaction.type === 'income' ? '+' : '-'} {money.format(transaction.amount)}</Text></View> }
+function TransactionRow({ transaction, category, bank }: { transaction: FinanceTransaction; category?: Category; bank?: Bank }) { return <View style={styles.transactionRow}><View style={[styles.transactionIcon, { backgroundColor: `${category?.color ?? COLORS.warning}22` }]}><Text>{category?.icon ?? '⚠️'}</Text></View><View style={styles.transactionInfo}><Text style={styles.transactionTitle}>{transaction.description}</Text><Text style={styles.transactionMeta}>{category?.name ?? 'Não identificado'} · {bank?.name ?? 'Outros'} · {new Date(`${transaction.date}T12:00:00`).toLocaleDateString('pt-BR')}</Text></View><Text style={[styles.transactionAmount, transaction.type === 'income' ? styles.income : styles.expense]}>{transaction.type === 'income' ? '+' : '-'} {money.format(transaction.amount)}</Text></View> }
 
 export default function App() {
   const finance = useFinanceData()
@@ -327,11 +446,15 @@ export default function App() {
   const [editingTransaction, setEditingTransaction] = useState<FinanceTransaction | null>(null)
   const [categoryModal, setCategoryModal] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
+  const [bankModal, setBankModal] = useState(false)
+  const [editingBank, setEditingBank] = useState<Bank | null>(null)
 
   const openTransaction = (transaction: FinanceTransaction | null) => { setEditingTransaction(transaction); setTransactionModal(true) }
   const openCategory = (category: Category | null) => { setEditingCategory(category); setCategoryModal(true) }
+  const openBank = (bank: Bank | null) => { setEditingBank(bank); setBankModal(true) }
   const saveTransaction = (input: TransactionInput) => editingTransaction ? finance.updateTransaction(editingTransaction.id, input) : finance.createTransaction(input)
   const saveCategory = (input: CategoryInput) => editingCategory ? finance.updateCategory(editingCategory.id, input) : finance.createCategory(input)
+  const saveBank = (input: BankInput) => editingBank ? finance.updateBank(editingBank.id, input) : finance.createBank(input)
 
   if (!finance.isReady) return <SafeAreaView style={styles.loading}><StatusBar style="light" /><ActivityIndicator color={COLORS.accent} size="large" /><Text style={styles.loadingText}>Carregando seus dados...</Text></SafeAreaView>
 
@@ -340,15 +463,17 @@ export default function App() {
       <StatusBar style="light" />
       {finance.storageError && <View style={styles.storageError}><Text style={styles.storageErrorText}>{finance.storageError}</Text></View>}
       <View style={styles.content}>
-        {screen === 'dashboard' && <Dashboard month={month} onMonthChange={setMonth} transactions={finance.transactions} categories={finance.categories} />}
-        {screen === 'transactions' && <TransactionsScreen month={month} onMonthChange={setMonth} transactions={finance.transactions} categories={finance.categories} onCreate={() => openTransaction(null)} onEdit={openTransaction} onDelete={finance.deleteTransaction} />}
+        {screen === 'dashboard' && <Dashboard month={month} onMonthChange={setMonth} transactions={finance.transactions} categories={finance.categories} banks={finance.banks} />}
+        {screen === 'transactions' && <TransactionsScreen month={month} onMonthChange={setMonth} transactions={finance.transactions} categories={finance.categories} banks={finance.banks} onCreate={() => openTransaction(null)} onEdit={openTransaction} onDelete={finance.deleteTransaction} />}
         {screen === 'categories' && <CategoriesScreen categories={finance.categories} onCreate={() => openCategory(null)} onEdit={openCategory} onDelete={finance.deleteCategory} />}
+        {screen === 'banks' && <BanksScreen month={month} onMonthChange={setMonth} banks={finance.banks} transactions={finance.transactions} onCreate={() => openBank(null)} onEdit={openBank} onDelete={finance.deleteBank} onToggle={finance.toggleBank} />}
       </View>
       <View style={styles.navigation}>
-        {([['dashboard', '◫', 'Resumo'], ['transactions', '↕', 'Transações'], ['categories', '●', 'Categorias']] as const).map(([key, icon, label]) => <Pressable key={key} style={styles.navItem} onPress={() => setScreen(key)}><Text style={[styles.navIcon, screen === key && styles.navActive]}>{icon}</Text><Text style={[styles.navLabel, screen === key && styles.navActive]}>{label}</Text></Pressable>)}
+        {([['dashboard', '◫', 'Resumo'], ['transactions', '↕', 'Transações'], ['categories', '●', 'Categorias'], ['banks', '▣', 'Bancos']] as const).map(([key, icon, label]) => <Pressable key={key} style={styles.navItem} onPress={() => setScreen(key)}><Text style={[styles.navIcon, screen === key && styles.navActive]}>{icon}</Text><Text style={[styles.navLabel, screen === key && styles.navActive]}>{label}</Text></Pressable>)}
       </View>
-      <TransactionModal visible={transactionModal} transaction={editingTransaction} categories={finance.categories} onClose={() => setTransactionModal(false)} onSave={saveTransaction} />
+      <TransactionModal visible={transactionModal} transaction={editingTransaction} categories={finance.categories} banks={finance.banks} onClose={() => setTransactionModal(false)} onSave={saveTransaction} />
       <CategoryModal visible={categoryModal} category={editingCategory} onClose={() => setCategoryModal(false)} onSave={saveCategory} />
+      <BankModal visible={bankModal} bank={editingBank} onClose={() => setBankModal(false)} onSave={saveBank} />
     </SafeAreaView>
   )
 }
