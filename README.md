@@ -2,7 +2,17 @@
 
 Base visual de um aplicativo móvel de controle de caixa, criada com Expo, React Native e TypeScript.
 
-Esta etapa contém somente a interface inicial: resumo financeiro, formulário de lançamento, histórico e um espaço reservado para o futuro assistente. Os dados ficam apenas em memória enquanto o app está aberto.
+Esta versão permite cadastrar categorias próprias e registrar entradas e saídas manualmente. Categorias e transações são persistidas no aparelho com AsyncStorage.
+
+## Funcionalidades atuais
+
+- categorias padrão organizadas por grupo;
+- criação, edição e exclusão de categorias do usuário;
+- proteção das categorias padrão contra exclusão;
+- criação, edição e exclusão de transações manuais;
+- filtros por mês, tipo e categoria;
+- dashboard com entradas, saídas, resultado, totais por categoria e itens para revisar;
+- armazenamento local preparado para futura substituição por Supabase.
 
 ## Requisitos
 
@@ -62,6 +72,14 @@ src/types.ts      Tipos dos lançamentos
 - React Native
 - React
 - TypeScript
+- AsyncStorage
+
+## Limites desta versão
+
+- não há sincronização em nuvem;
+- não há integração com OpenAI;
+- não há importação de imagens ou comprovantes;
+- os dados ficam somente no dispositivo.
 
 ## Observação sobre validação
 
